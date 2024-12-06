@@ -1,0 +1,31 @@
+
+missionNginx:
+  - name: nginx
+    minCount: 1
+  - name: nginx-2
+    minCount: 1
+
+# missionCrypto:
+#      - name: bff
+#        minCount: 8
+#      - name:  account
+#        minCount: 5
+#      - name: gamification
+#        minCount: 4
+    
+# missionStock:
+#      - name: bff
+#        minCount: 8
+#      - name: account
+#        minCount: 5
+#      - name: stock
+#        minCount: 4
+   
+# missionGold:
+#      - name: bff
+#        minCount: 7
+#      - name: account
+#        minCount: 7
+#      - name: gold
+#        minCount: 2     
+   
