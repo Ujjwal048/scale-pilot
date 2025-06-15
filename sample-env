@@ -1,4 +1,3 @@
-EVENT_NAME=
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/xxxxx/xxxxx/xxxxx"
-SLEEP_TIME=
+SLEEP_TIME=3600
 NAMESPACE=

@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scale-pilot-cj
+  namespace: <your-namespace>
+spec:
+  schedule: 0 1 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: scale-pilot-cj
+            image: <your-private-image-registry>
+            envFrom:
+            - secretRef:
+                name: scale-pilot-eventname
+            volumeMounts:
+            - mountPath: /app/config.yaml
+              name: scale-pilot-config-file
+              subPath: config.yaml
+            - mountPath: /app/.env
+              name: scale-pilot-env
+              subPath: .env
+          serviceAccountName: scale-pilot
+          volumes:
+          - name: scale-pilot-config-file
+            secret:
+              secretName: scale-pilot-config-file
+          - name: scale-pilot-env
+            secret:
+              secretName: scale-pilot-env

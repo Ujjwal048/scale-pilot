@@ -9,14 +9,16 @@ import logging
 class ScalePilot:
     def __init__(self):
         load_dotenv()
+        self.api = client.AutoscalingV2Api(config.load_incluster_config())  # Use config.load_kube_config() if running locally
         self.config = {
             "event_name": os.getenv("EVENT_NAME"),
             "webhook_url": os.getenv("SLACK_WEBHOOK_URL"),
             "namespace": os.getenv("NAMESPACE", "nanovest"),
             "sleep_time": int(os.getenv("SLEEP_TIME", 900)),
-            "event_config_file": "config.yaml",
+            "event_config_file": os.getenv("EVENT_CONFIG_FILE_NAME","config.yaml"),
             "original_values": {},
-        }
+        }    
+
     
     def load_event_config(self, file_path):
         """Load event configuration from a YAML file."""
@@ -35,7 +37,7 @@ class ScalePilot:
         slack_webhook_url = self.config["webhook_url"]
         event_config = self.load_event_config(self.config["event_config_file"])
         services = event_config.get(event_name)
-        
+                             
         if not slack_webhook_url or not event_name or not event_config or not services:
             if not slack_webhook_url:
               logging.error("Env variable SLACK_WEBHOOK_URL is not set.")
@@ -46,7 +48,7 @@ class ScalePilot:
             if not services:
                 logging.error(f"No configuration found for Eventname: {event_name}")
             exit(1)
-        
+    
         return services
         
     def send_slack_notification(self, message):
@@ -64,7 +66,7 @@ class ScalePilot:
         """Format a Slack message for successful updates."""
         return (
             f"> *Service:* `{service_name}`\n"
-            f"> *Updated Replica Count:* {old_min} :arrow_right: {new_min}\n"
+            f"> *Updated Min Count:* {old_min} :arrow_right: {new_min}\n"
             f"> *Scaling Completed!* :white_check_mark:"
         )
 
@@ -78,13 +80,12 @@ class ScalePilot:
 
     def update_hpa(self, service_name, min_count):
         """Update the HPA for a given service and notify via Slack."""
-        config.load_kube_config()  # Use config.load_incluster_config() if running inside a cluster
-        api = client.AutoscalingV2Api()
+        api=self.api
         namespace = self.config["namespace"]
         try:
             if min_count is None or min_count < 1:
                 message = f"Invalid minCount value for service {service_name}"
-                # self.send_slack_notification(self.format_error_message(service_name, message))
+                self.send_slack_notification(self.format_error_message(service_name, message))
                 logging.error(message)
                 exit(1)
             hpa = api.read_namespaced_horizontal_pod_autoscaler(service_name, namespace)
@@ -93,8 +94,8 @@ class ScalePilot:
             hpa.spec.min_replicas = min_count
             api.patch_namespaced_horizontal_pod_autoscaler(service_name, namespace, hpa)
             message = self.format_success_message(service_name, old_min, min_count)
-            logging.info(message)
-            # self.send_slack_notification(message)
+            logging.info(f"Updated HPA minCount for service {service_name} from {old_min} to {min_count}")
+            self.send_slack_notification(message)
         except client.exceptions.ApiException as e:
             error_message = (
                 f"HPA for service {service_name} not found in namespace {namespace}."
@@ -103,7 +104,7 @@ class ScalePilot:
             )
             message = self.format_error_message(service_name, error_message)
             logging.error(e)
-            # self.send_slack_notification(message)
+            self.send_slack_notification(message)
             exit(1)
 
     def sleep_temporarily(self):
@@ -113,7 +114,7 @@ class ScalePilot:
         
     def revert_hpa(self):
         """Revert the HPA to the original minCount values."""
-        api = client.AutoscalingV2Api()
+        api = self.api
         namespace = self.config["namespace"]
         for service_name, original_min in self.config["original_values"].items():
             try:
@@ -125,19 +126,19 @@ class ScalePilot:
                     f"> *Scaled Down successfully* :white_check_mark: \n"
                     f"> *Reverted Min Count:* {original_min}"
                 )
-                logging.info(message)
-                # self.send_slack_notification(message)
+                logging.info(f"Reverted HPA minCount for service {service_name} to {original_min}")
+                self.send_slack_notification(message)
             except client.exceptions.ApiException as e:
                 error_message = f"Failed to revert HPA for {service_name}: {str(e)}"
                 logging.error(error_message)
-                # self.send_slack_notification(self.format_error_message(service_name, error_message))
+                self.send_slack_notification(self.format_error_message(service_name, error_message))
 
     def run(self):
         
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
         services = self.check_event_config()
-        # self.send_slack_notification(f":loading: *Scaling Workloads for NanoPlay :arrow_right: {self.config['event_name']}* :loading:")
+        self.send_slack_notification(f":loading: *Scaling Workloads for Event :arrow_right: {self.config['event_name']}* :loading:")
         for service in services:
             self.update_hpa(service["name"], service["minCount"])
 
