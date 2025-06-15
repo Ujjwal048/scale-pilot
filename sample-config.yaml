@@ -1,0 +1,12 @@
+weekly-scale-up:
+  - name: hpa-1
+    minCount: 4
+  - name: hpa-2
+    minCount: 5
+
+monthly-scale-up:
+  - name: hpa-3
+    minCount: 1
+  - name: hpa-4
+    minCount: 1     
+   
